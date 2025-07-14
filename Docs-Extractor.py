@@ -58,3 +58,62 @@ if __name__ == "__main__":
     extracted = extract_text_and_hyperlinks(docx_input)
     generate_html(extracted, html_output)
     print(f"[+] Output saved to {html_output}")
+
+
+
+
+
+
+
+
+from docx import Document
+import re
+
+def extract_sentences_with_links(docx_path, output_path="output.txt"):
+    doc = Document(docx_path)
+    results = []
+
+    for para in doc.paragraphs:
+        full_text = ''
+        links = []
+
+        for run in para.runs:
+            full_text += run.text
+
+        # Extract hyperlinks from paragraph XML
+        para_xml = para._element.xml
+        hyperlink_matches = re.findall(r'w:hyperlink[^>]*r:id="([^"]+)"', para_xml)
+        hyperlink_targets = []
+
+        for rId in hyperlink_matches:
+            try:
+                hyperlink = doc.part.related_parts[doc.part.rels[rId].target_ref]
+                hyperlink_targets.append(hyperlink)
+            except:
+                hyperlink_targets.append("N/A")
+
+        # Sentence split
+        sentences = re.split(r'(?<=[.!?])\s+', full_text)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+
+            found_link = None
+            for target in hyperlink_targets:
+                if isinstance(target, str) and target in sentence:
+                    found_link = target
+                    break
+                elif hasattr(target, 'target_ref') and target.target_ref in sentence:
+                    found_link = target.target_ref
+                    break
+
+            results.append((sentence, found_link if found_link else "N/A"))
+
+    # Save to file
+    with open(output_path, "w", encoding="utf-8") as f:
+        for sentence, link in results:
+            f.write(f"Sentence: {sentence}\nLink: {link}\n\n")
+
+# Example usage
+extract_sentences_with_links("input.docx")
